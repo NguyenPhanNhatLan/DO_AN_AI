@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox, filedialog
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 from problem.genetic import GeneticAlgorithm
 from problem.knapsack import KnapsackProblem
 
@@ -82,6 +83,8 @@ def start():
 
         sovler = GeneticAlgorithm(problem= problem, populationSize= population_size, generations=generations, crossoverType= crossover_type ,mutationRate=mutation_rate)
         logs = sovler.run() 
+        for log in logs:
+            print(log)
         plot_chart(logs)
 
     # Vẽ biểu đồ
@@ -91,18 +94,54 @@ def start():
         avg_fitness = [log["avg"] for log in logs]
         worst_fitness = [log["worst"] for log in logs]
 
-        plt.figure(figsize=(10, 6))
-        plt.plot(generations, best_fitness, label="Best Fitness", color='green')
-        plt.plot(generations, avg_fitness, label="Average Fitness", color='blue')
-        plt.plot(generations, worst_fitness, label="Worst Fitness", color='red')
+        # Tạo cửa sổ mới chứa cả biểu đồ và danh sách cá thể tốt nhất
+        result_window = tk.Toplevel(root)
+        result_window.title("Kết quả tiến hoá")
 
-        plt.title("Tiến hoá qua các thế hệ")
-        plt.xlabel("Thế hệ")
-        plt.ylabel("Giá trị Fitness")
-        plt.legend()
-        plt.grid(True)
-        plt.tight_layout()
-        plt.show()
+        # --- VÙNG BIỂU ĐỒ ---
+        fig = Figure(figsize=(7, 4), dpi=100)
+        ax = fig.add_subplot(111)
+        ax.plot(generations, best_fitness, label="Best Fitness", color='green')
+        ax.plot(generations, avg_fitness, label="Average Fitness", color='blue')
+        ax.plot(generations, worst_fitness, label="Worst Fitness", color='red')
+        ax.set_title("Tiến hoá qua các thế hệ")
+        ax.set_xlabel("Thế hệ")
+        ax.set_ylabel("Fitness")
+        ax.legend()
+        ax.grid(True)
+
+        chart_frame = tk.Frame(result_window)
+        chart_frame.pack(fill="both", expand=False, padx=10, pady=5)
+        canvas = FigureCanvasTkAgg(fig, master=chart_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        # --- VÙNG DANH SÁCH VẬT PHẨM ĐƯỢC CHỌN ---
+        table_frame = tk.Frame(result_window)
+        table_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        label = tk.Label(table_frame, text="Vật phẩm được chọn (trong cá thể tốt nhất cuối cùng):", font=("Arial", 10, "bold"))
+        label.pack(anchor="w")
+
+        result_tree = ttk.Treeview(table_frame, columns=("name", "quantity"), show="headings", height=10)
+        result_tree.heading("name", text="Tên vật phẩm")
+        result_tree.heading("quantity", text="Số lượng được chọn")
+
+        result_tree.column("name", anchor="center")
+        result_tree.column("quantity", anchor="center")
+        result_tree.pack(side="left", fill="both", expand=True)
+
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=result_tree.yview)
+        result_tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+
+        # Lấy cá thể tốt nhất cuối cùng
+        best_individual = logs[-1].get("bestIndividual", [])
+        for i, qty in enumerate(best_individual):
+            if qty > 0:
+                result_tree.insert("", "end", values=(products[i]["name"], qty))
+
 
     # GUI chính
     root = tk.Tk()
