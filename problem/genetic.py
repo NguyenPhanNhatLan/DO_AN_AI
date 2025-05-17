@@ -79,8 +79,8 @@ class GeneticAlgorithm:
             bestFitness = max(fitnesses)
             avgFitness = sum(fitnesses)/len(fitnesses)
             worstFitness = min(fitnesses)
-            self.logs.append({"generation" : generation, 'best': bestFitness, 'avg': avgFitness, 'worst': worstFitness})
             bestIndividual = max(population, key= self.EvaluateFitness)
+            self.logs.append({"generation" : generation, 'best': bestFitness, 'avg': avgFitness, 'worst': worstFitness, 'bestIndividual' : bestIndividual})
             new_population = []
             while len(new_population) < self.populationSize:
                 parent1 = self.Selection(num_choices=3) #chọn cha mẹ 

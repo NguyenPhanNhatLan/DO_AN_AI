@@ -72,13 +72,15 @@ def start():
             generations = int(generations_entry.get())
             population_size = int(pop_size_entry.get())
             mutation_rate = float(mutation_rate_entry.get())
+            selected = crossover_combo.get()
+            crossover_type = crossover_options[selected]
         except ValueError:
             messagebox.showerror("Lỗi", "Vui lòng nhập thông số hợp lệ.")
             return
 
         problem = KnapsackProblem(products, capacity= capacity)
 
-        sovler = GeneticAlgorithm(problem= problem, populationSize= population_size, generations=generations, crossoverType= 'uniform' ,mutationRate=mutation_rate)
+        sovler = GeneticAlgorithm(problem= problem, populationSize= population_size, generations=generations, crossoverType= crossover_type ,mutationRate=mutation_rate)
         logs = sovler.run() 
         plot_chart(logs)
 
@@ -165,7 +167,7 @@ def start():
 
     # CẤU HÌNH GA (giãn nhẹ)
     ga_frame = tk.LabelFrame(root, text="Cấu hình thuật toán di truyền", padx=10, pady=10)
-    ga_frame.pack(fill="x", padx=10, pady=(0,10))
+    ga_frame.pack(fill="x", padx=10, pady=(0,10))\
 
     ga_frame.columnconfigure(1, weight=1)  # Chỉ giãn cột nhập liệu
 
@@ -185,7 +187,24 @@ def start():
     mutation_rate_entry = tk.Entry(ga_frame)
     mutation_rate_entry.grid(row=3, column=1, sticky="ew", padx=5, pady=3)
 
+    tk.Label(ga_frame, text="Kiểu lai (Crossover):").grid(row=4, column=0, sticky="w", padx=5, pady=3)
+
+    crossover_options = {
+        "Lai một điểm": "one_point",
+        "Lai ngẫu nhiên": "uniform"
+    }
+
+    # Hiển thị các tên thân thiện cho người dùng
+    combo_values = list(crossover_options.keys())
+
+    # Tạo combobox với tên hiển thị
+    crossover_combo = ttk.Combobox(ga_frame, values=combo_values, state="readonly")
+    crossover_combo.current(0)  # Mặc định chọn "Lai một điểm"
+    crossover_combo.grid(row=4, column=1, sticky="ew", padx=5, pady=3)
+
+
     run_button = tk.Button(ga_frame, text="Chạy thuật toán", command=run_ga)
     run_button.grid(row=4, column=0, columnspan=2, pady=5, sticky="ew")
+    run_button.grid(row=5, column=0, columnspan=2, pady=5, sticky="ew")
 
     root.mainloop()
