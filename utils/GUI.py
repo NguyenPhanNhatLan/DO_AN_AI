@@ -1,12 +1,10 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import pandas as pd
-import random
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from problem.genetic import GeneticAlgorithm
 from problem.knapsack import KnapsackProblem
-
 
 def start():
 # Khởi tạo danh sách sản phẩm
@@ -22,7 +20,6 @@ def start():
         except ValueError:
             messagebox.showerror("Lỗi", "Vui lòng nhập số hợp lệ cho trọng lượng, giá trị và số lượng.")
             return
-
         products.append({"name": name, "weight": weight, "value": value, "Max_quantity": max_qty})
         update_table()
         name_entry.delete(0, tk.END)
@@ -64,7 +61,7 @@ def start():
             except Exception as e:
                 messagebox.showerror("Lỗi", f"Không thể đọc file Excel: {e}")
 
-    # GA Core
+    #chạy thuật toán 
     def run_ga():
         if not products:
             messagebox.showerror("Lỗi", "Chưa có sản phẩm để tính toán.")
@@ -81,28 +78,29 @@ def start():
 
         problem = KnapsackProblem(products, capacity= capacity)
 
-        sovler = GeneticAlgorithm(problem, populationSize= population_size, generations=generations, mutationRate=mutation_rate)
-
-        sovler.initialPopulation()
+        sovler = GeneticAlgorithm(problem= problem, populationSize= population_size, generations=generations, crossoverType= 'uniform' ,mutationRate=mutation_rate)
         logs = sovler.run() 
-        # Vẽ biểu đồ
         plot_chart(logs)
 
     # Vẽ biểu đồ
     def plot_chart(logs):
-        fig, ax = plt.subplots(figsize=(5, 3))
-        ax.plot(logs["generation"], logs["best"], label="Best Fitness", color="green")
-        ax.plot(logs["generation"], logs["average"], label="Average Fitness", color="blue")
-        ax.plot(logs["generation"], logs["worst"], label="Worst Fitness", color="red")
-        ax.set_xlabel("Generation")
-        ax.set_ylabel("Fitness")
-        ax.legend()
-        ax.grid(True)
-        chart_window = tk.Toplevel(root)
-        chart_window.title("Biểu đồ Fitness")
-        canvas = FigureCanvasTkAgg(fig, master=chart_window)
-        canvas.draw()
-        canvas.get_tk_widget().pack()
+        generations = [log["generation"] for log in logs]
+        best_fitness = [log["best"] for log in logs]
+        avg_fitness = [log["avg"] for log in logs]
+        worst_fitness = [log["worst"] for log in logs]
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(generations, best_fitness, label="Best Fitness", color='green')
+        plt.plot(generations, avg_fitness, label="Average Fitness", color='blue')
+        plt.plot(generations, worst_fitness, label="Worst Fitness", color='red')
+
+        plt.title("Tiến hoá qua các thế hệ")
+        plt.xlabel("Thế hệ")
+        plt.ylabel("Giá trị Fitness")
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
 
     # GUI chính
     root = tk.Tk()
@@ -179,7 +177,7 @@ def start():
     generations_entry = tk.Entry(ga_frame)
     generations_entry.grid(row=1, column=1, sticky="ew", padx=5, pady=3)
 
-    tk.Label(ga_frame, text="Kích thước quần thể:").grid(row=2, column=0, sticky="w", padx=5, pady=3)
+    tk.Label(ga_frame, text="Số cá thể trong quần thể:").grid(row=2, column=0, sticky="w", padx=5, pady=3)
     pop_size_entry = tk.Entry(ga_frame)
     pop_size_entry.grid(row=2, column=1, sticky="ew", padx=5, pady=3)
 
