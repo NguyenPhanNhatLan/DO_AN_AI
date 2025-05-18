@@ -69,45 +69,74 @@ def start():
             return
 
         try:
-            capacity = float(capacity_entry.get())
-            generations = int(generations_entry.get())
+            capacity       = float(capacity_entry.get())
+            generations     = int(generations_entry.get())
             population_size = int(pop_size_entry.get())
-            mutation_rate = float(mutation_rate_entry.get())
-            selected = crossover_combo.get()
-            crossover_type = crossover_options[selected]
+            mutation_rate   = float(mutation_rate_entry.get())
+            selected        = crossover_combo.get()
+            crossover_type  = crossover_options[selected]
         except ValueError:
             messagebox.showerror("Lỗi", "Vui lòng nhập thông số hợp lệ.")
             return
-        
-        num_runs = 10
-        all_run_logs = []
 
+        # 2. Thông số lặp nhiều lần
+        num_runs        = 10         # có thể đổi thành entry nếu muốn
+        all_run_logs    = []         # lưu log của từng lần
+        best_per_run    = []         # lưu (bestFitness, generation_index, log_list) cho mỗi lần
 
+        problem = KnapsackProblem(products, capacity=capacity)
 
-        problem = KnapsackProblem(products, capacity= capacity)
+        # 3. Chạy GA nhiều lần
+        for run_idx in range(num_runs):
+            solver = GeneticAlgorithm(
+                problem        = problem,
+                populationSize = population_size,
+                generations    = generations,
+                crossoverType  = crossover_type,
+                mutationRate   = mutation_rate
+            )
+            logs = solver.run()
+            all_run_logs.append(logs)
 
-        sovler = GeneticAlgorithm(problem= problem, populationSize= population_size, generations=generations, crossoverType= crossover_type ,mutationRate=mutation_rate)
-        logs = sovler.run() 
-        for log in logs:
-            print(log)
-        plot_chart(logs)
+            best_gen_log = max(logs, key=lambda x: x['best'])   # log của thế hệ tốt nhất trong lần chạy này
+            best_per_run.append((best_gen_log['best'], run_idx, best_gen_log, logs))
 
-    # Vẽ biểu đồ
-    def plot_chart(logs):
-        generations = [log["generation"] for log in logs]
-        best_fitness = [log["best"] for log in logs]
-        avg_fitness = [log["avg"] for log in logs]
-        worst_fitness = [log["worst"] for log in logs]
+        # 4. Tìm lần chạy có fitness cao nhất
+        best_overall_fitness, best_run_idx, best_gen_log, best_run_logs = max(best_per_run, key=lambda x: x[0])
 
-        # Tạo cửa sổ mới chứa cả biểu đồ và danh sách cá thể tốt nhất
+        # 5. Hiển thị kết quả
+        plot_chart(
+            run_index          = best_run_idx + 1,
+            num_runs           = num_runs,
+            best_fitness_value = best_overall_fitness,
+            best_individual    = best_gen_log['bestIndividual'],
+            logs               = best_run_logs
+        )
+
+    def plot_chart(run_index, num_runs, best_fitness_value, best_individual, logs):
+        generations   = [log["generation"] for log in logs]
+        best_fitness  = [log["best"]       for log in logs]
+        avg_fitness   = [log["avg"]        for log in logs]
+        worst_fitness = [log["worst"]      for log in logs]
+
+        # Tạo cửa sổ kết quả
         result_window = tk.Toplevel(root)
         result_window.title("Kết quả tiến hoá")
 
-        # --- VÙNG BIỂU ĐỒ ---
+        # ---------- Thông tin chung ----------
+        info_lbl = tk.Label(
+            result_window,
+            text=f"Lần chạy tốt nhất: {run_index}/{num_runs}   "
+                f"|  Fitness cao nhất: {best_fitness_value:.2f}",
+            font=("Arial", 11, "bold"),
+            fg="blue"
+        )
+        info_lbl.pack(pady=(10, 0))
+
         fig = Figure(figsize=(7, 4), dpi=100)
-        ax = fig.add_subplot(111)
-        ax.plot(generations, best_fitness, label="Best Fitness", color='green')
-        ax.plot(generations, avg_fitness, label="Average Fitness", color='blue')
+        ax  = fig.add_subplot(111)
+        ax.plot(generations, best_fitness,  label="Best Fitness",  color='green')
+        ax.plot(generations, avg_fitness,   label="Average Fitness", color='blue')
         ax.plot(generations, worst_fitness, label="Worst Fitness", color='red')
         ax.set_title("Tiến hoá qua các thế hệ")
         ax.set_xlabel("Thế hệ")
@@ -121,32 +150,38 @@ def start():
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
-        # --- VÙNG DANH SÁCH VẬT PHẨM ĐƯỢC CHỌN ---
         table_frame = tk.Frame(result_window)
         table_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-        label = tk.Label(table_frame, text="Vật phẩm được chọn (trong cá thể tốt nhất cuối cùng):", font=("Arial", 10, "bold"))
+        label = tk.Label(
+            table_frame,
+            text="Vật phẩm được chọn (trong cá thể tốt nhất):",
+            font=("Arial", 10, "bold")
+        )
         label.pack(anchor="w")
 
-        result_tree = ttk.Treeview(table_frame, columns=("name", "quantity"), show="headings", height=10)
-        result_tree.heading("name", text="Tên vật phẩm")
+        result_tree = ttk.Treeview(
+            table_frame,
+            columns=("name", "quantity"),
+            show="headings",
+            height=10
+        )
+        result_tree.heading("name",     text="Tên vật phẩm")
         result_tree.heading("quantity", text="Số lượng được chọn")
-
-        result_tree.column("name", anchor="center")
+        result_tree.column("name",     anchor="center")
         result_tree.column("quantity", anchor="center")
         result_tree.pack(side="left", fill="both", expand=True)
 
-        # Scrollbar
-        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=result_tree.yview)
+        scrollbar = ttk.Scrollbar(
+            table_frame, orient="vertical", command=result_tree.yview
+        )
         result_tree.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
 
-        # Lấy cá thể tốt nhất cuối cùng
-        best_individual = logs[-1].get("bestIndividual", [])
+        # Nạp dữ liệu vật phẩm
         for i, qty in enumerate(best_individual):
             if qty > 0:
                 result_tree.insert("", "end", values=(products[i]["name"], qty))
-
 
     # GUI chính
     root = tk.Tk()
