@@ -78,6 +78,11 @@ def start():
         except ValueError:
             messagebox.showerror("Lỗi", "Vui lòng nhập thông số hợp lệ.")
             return
+        
+        num_runs = 10
+        all_run_logs = []
+
+
 
         problem = KnapsackProblem(products, capacity= capacity)
 

@@ -70,7 +70,6 @@ class GeneticAlgorithm:
             if random.random() < self.mutationRate:
                 individual[i] = random.randint(0, self.problem.items[i]['Max_quantity'])
 
-
     def run(self):
         self.InitialPopulation()
         population = self.population
