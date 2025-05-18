@@ -94,7 +94,7 @@ def start():
         best_line, = ax.plot([], [], label="Best Fitness", color='green')
         avg_line, = ax.plot([], [], label="Average Fitness", color='blue')
         worst_line, = ax.plot([], [], label="Worst Fitness", color='red')
-        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        ax.legend(loc='center bottom', bbox_to_anchor=(1, 0.5))
 
 
         canvas = FigureCanvasTkAgg(fig, master=result_window)
@@ -176,80 +176,31 @@ def start():
             fontsize=10, color='purple', fontweight='bold'
         )
         canvas.draw()
-        # messagebox.showinfo("Hoàn tất", f"Lần chạy tốt nhất: {best_run_idx + 1}/{num_runs}\nFitness cao nhất: {best_overall_fitness:.2f}")
+        def show_selected_items():
+            item_window = tk.Toplevel(result_window)
+            item_window.title("Vật phẩm được chọn - Thế hệ tốt nhất")
 
+            tk.Label(item_window, text="Danh sách vật phẩm được chọn:", font=("Arial", 11, "bold")).pack(pady=5)
 
-    def plot_chart(run_index, num_runs, best_fitness_value, best_individual, logs):
-        generations   = [log["generation"] for log in logs]
-        best_fitness  = [log["best"]       for log in logs]
-        avg_fitness   = [log["avg"]        for log in logs]
-        worst_fitness = [log["worst"]      for log in logs]
+            item_tree = ttk.Treeview(item_window, columns=("name", "quantity", "weight", "value"), show="headings")
+            item_tree.heading("name", text="Tên vật phẩm")
+            item_tree.heading("quantity", text="Số lượng")
+            item_tree.heading("weight", text="Trọng lượng")
+            item_tree.heading("value", text="Giá trị")
+            item_tree.pack(fill="both", expand=True, padx=10, pady=5)
 
-        result_window = tk.Toplevel(root)
-        result_window.title("Kết quả tiến hoá")
+            scrollbar = ttk.Scrollbar(item_window, orient="vertical", command=item_tree.yview)
+            item_tree.configure(yscrollcommand=scrollbar.set)
+            scrollbar.pack(side="right", fill="y")
 
-        info_lbl = tk.Label(
-            result_window,
-            text=f"Lần chạy tốt nhất: {run_index}/{num_runs} | Fitness cao nhất: {best_fitness_value:.2f}",
-            font=("Arial", 11, "bold"),
-            fg="blue"
-        )
-        info_lbl.pack(pady=(10, 0))
+            best_individual = best_gen_log["best_individual"]
+            for i, qty in enumerate(best_individual):
+                if qty > 0:
+                    p = products[i]
+                    item_tree.insert("", "end", values=(p["name"], qty, p["weight"], p["value"]))
 
-        fig = Figure(figsize=(7, 4), dpi=100)
-        ax = fig.add_subplot(111)
-        ax.plot(generations, best_fitness, label="Best Fitness", color='green')
-        ax.plot(generations, avg_fitness, label="Average Fitness", color='blue')
-        ax.plot(generations, worst_fitness, label="Worst Fitness", color='red')
-        ax.set_title("Tiến hoá qua các thế hệ")
-        ax.set_xlabel("Thế hệ")
-        ax.set_ylabel("Fitness")
-        ax.legend()
-        ax.grid(True)
-
-        chart_frame = tk.Frame(result_window)
-        chart_frame.pack(fill="both", expand=False, padx=10, pady=5)
-        canvas = FigureCanvasTkAgg(fig, master=chart_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True)
-
-        table_frame = tk.Frame(result_window)
-        table_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-
-        tk.Label(table_frame, text="Vật phẩm được chọn:", font=("Arial", 10, "bold")).pack(anchor="w")
-
-        result_tree = ttk.Treeview(table_frame, columns=("name", "quantity"), show="headings", height=10)
-        result_tree.heading("name", text="Tên vật phẩm")
-        result_tree.heading("quantity", text="Số lượng được chọn")
-        result_tree.column("name", anchor="center")
-        result_tree.column("quantity", anchor="center")
-        result_tree.pack(side="left", fill="both", expand=True)
-
-        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=result_tree.yview)
-        result_tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-
-        for i, qty in enumerate(best_individual):
-            if qty > 0:
-                result_tree.insert("", "end", values=(products[i]["name"], qty))
-
-        def save_results():
-            file = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
-            if file:
-                selected_items = []
-                for i, qty in enumerate(best_individual):
-                    if qty > 0:
-                        selected_items.append({
-                            "name": products[i]["name"],
-                            "quantity": qty,
-                            "weight": products[i]["weight"],
-                            "value": products[i]["value"]
-                        })
-                pd.DataFrame(selected_items).to_excel(file, index=False)
-                messagebox.showinfo("Thành công", "Đã lưu kết quả.")
-
-        save_btn = tk.Button(result_window, text="Lưu kết quả ra Excel", command=save_results)
-        save_btn.pack(pady=(0, 10))
+        show_items_btn = tk.Button(result_window, text="Xem vật phẩm được chọn", command=show_selected_items)
+        show_items_btn.pack(pady=(5, 10))
 
 
     root = tk.Tk()
