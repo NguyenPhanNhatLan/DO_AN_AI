@@ -168,7 +168,15 @@ def start():
         )
         solver.run(log_callback=update_chart)
 
-        messagebox.showinfo("Hoàn tất", f"Lần chạy tốt nhất: {best_run_idx + 1}/{num_runs}\nFitness cao nhất: {best_overall_fitness:.2f}")
+        summary_text = f"Run tốt nhất: {best_run_idx + 1}/{num_runs} | Fitness cao nhất: {best_overall_fitness:.2f}"
+        fig.text(
+            0.5, 0.95,  # Tỉ lệ toàn figure (0 = trái, 1 = phải)
+            summary_text,
+            ha='center', va='bottom',
+            fontsize=10, color='purple', fontweight='bold'
+        )
+        canvas.draw()
+        # messagebox.showinfo("Hoàn tất", f"Lần chạy tốt nhất: {best_run_idx + 1}/{num_runs}\nFitness cao nhất: {best_overall_fitness:.2f}")
 
 
     def plot_chart(run_index, num_runs, best_fitness_value, best_individual, logs):
