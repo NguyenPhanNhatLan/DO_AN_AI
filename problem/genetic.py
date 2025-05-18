@@ -39,6 +39,8 @@ class GeneticAlgorithm:
             return self.uniform_crossover(parent1, parent2)
         elif self.crossoverType == 'one_point':
             return self.one_point_crossover(parent1, parent2)
+        elif self.crossoverType == 'two_points':
+            return self.two_points_crossover(parent1, parent2)
         else:
             return parent1, parent2
 
@@ -49,6 +51,16 @@ class GeneticAlgorithm:
                 parent1[:cut_point] + parent2[cut_point:],
                 parent2[:cut_point] + parent1[cut_point:]
             )
+        return parent1, parent2
+    
+
+    def two_points_crossover(self, parent1, parent2):
+        if random.random() < self.crossoverRate:
+            point1 = random.randint(1, len(parent1) - 2)
+            point2 = random.randint(point1 + 1, len(parent1) - 1)
+            child1 = parent1[:point1] + parent2[point1:point2] + parent1[point2:]
+            child2 = parent2[:point1] + parent1[point1:point2] + parent2[point2:]
+            return child1, child2
         return parent1, parent2
 
     def uniform_crossover(self, parent1, parent2):

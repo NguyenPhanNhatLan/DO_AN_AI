@@ -94,7 +94,7 @@ def start():
         best_line, = ax.plot([], [], label="Best Fitness", color='green')
         avg_line, = ax.plot([], [], label="Average Fitness", color='blue')
         worst_line, = ax.plot([], [], label="Worst Fitness", color='red')
-        ax.legend(loc='center bottom', bbox_to_anchor=(1, 0.5))
+        ax.legend(loc='lower center', bbox_to_anchor=(1, 0.5))
 
 
         canvas = FigureCanvasTkAgg(fig, master=result_window)
@@ -272,10 +272,11 @@ def start():
     num_runs_entry.grid(row=4, column=1, sticky="ew", padx=5, pady=3)
 
     tk.Label(ga_frame, text="Kiểu lai:").grid(row=5, column=0, sticky="w", padx=5, pady=3)
-    crossover_options = {"Lai một điểm": "one_point", "Lai ngẫu nhiên": "uniform"}
+    crossover_options = {"Lai một điểm": "one_point", "Lai ngẫu nhiên": "uniform", "Lai hai điểm":"two_points"}
     crossover_combo = ttk.Combobox(ga_frame, values=list(crossover_options.keys()), state="readonly")
     crossover_combo.current(0)
     crossover_combo.grid(row=5, column=1, sticky="ew", padx=5, pady=3)
+
 
     run_button = tk.Button(ga_frame, text="Chạy thuật toán", command=run_ga)
     run_button.grid(row=6, column=0, columnspan=2, pady=10, sticky="ew")
