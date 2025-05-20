@@ -99,7 +99,7 @@ class GeneticAlgorithm:
             }
             self.logs.append(log)
 
-            if log_callback and (generation + 1) % 10 == 0:
+            if log_callback and (generation + 1) % 10 == 0: #callback này giống như 1 cách để gọi cập nhật biểu đồ song song với chạy thuật toán 
                 log_callback(log)
 
             new_population = []
