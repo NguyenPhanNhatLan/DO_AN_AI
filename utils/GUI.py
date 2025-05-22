@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import pandas as pd
+import platform
+
 import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -12,10 +14,67 @@ class KnapsackUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Bài toán Cái túi - Genetic Algorithm")
+        self.root.geometry("1000x750")
+        self.root.minsize(900, 650)
+
+        # Main frame
+        self.main_frame = tk.Frame(self.root)
+        self.main_frame.grid(row=0, column=0, sticky="nsew")
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+
+        # Scrollable canvas
+        self.canvas = tk.Canvas(self.main_frame)
+        self.scrollbar = ttk.Scrollbar(self.main_frame, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.scrollbar.grid(row=0, column=1, sticky="ns")
+
+        self.main_frame.columnconfigure(0, weight=1)
+        self.main_frame.rowconfigure(0, weight=1)
+
+        # Scrollable frame bên trong canvas
+        self.scrollable_frame = tk.Frame(self.canvas)
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+
+        # Cập nhật vùng scroll khi frame thay đổi kích thước
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        )
+
+        # Cập nhật chiều rộng canvas window khi resize
+        self.canvas.bind(
+            "<Configure>",
+            lambda e: self.canvas.itemconfig(self.canvas_window, width=e.width)
+        )
+
+
+        # Bind cuộn chuột cho canvas
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
         self.products = []
+        self.selection_options = {"Roulette Wheel Selection" : "roulette", "Tournament Selection" : "tournament", "Random Selection": "random"}
         self.crossover_options = {"Lai một điểm": "one_point", "Lai ngẫu nhiên": "uniform", "Lai hai điểm":"two_points"}
+        self.mutation_options = {"Đột biến ngẫu nhiên": "uniform", "Đột biến đảo đoạn": "scramble"}
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel)
 
         self.create_widgets()
+
+    def _on_mousewheel(self, event):
+        system = platform.system()
+        if system == 'Windows':
+            self.canvas.yview_scroll(-1 * int(event.delta / 120), "units")
+        elif system == 'Darwin':  # macOS
+            self.canvas.yview_scroll(-1 * int(event.delta), "units")
+        else:  # Linux (Button-4, Button-5 đã bind sẵn)
+            if event.num == 4:
+                self.canvas.yview_scroll(-1, "units")
+            elif event.num == 5:
+                self.canvas.yview_scroll(1, "units")
 
 
     def create_widgets(self):
@@ -25,7 +84,7 @@ class KnapsackUI:
         self.build_ga_config()
 
     def build_product_form(self):
-        form_frame = tk.Frame(self.root, padx=10, pady=10)
+        form_frame = tk.Frame(self.scrollable_frame, padx=10, pady=10)
         form_frame.pack(fill="x")
         form_frame.columnconfigure(1, weight=1)
 
@@ -40,8 +99,9 @@ class KnapsackUI:
 
         tk.Button(form_frame, text="Thêm sản phẩm", command=self.add_product).grid(row=4, column=0, columnspan=2, pady=10, sticky="ew")
 
+   
     def build_product_table(self):
-        tree_frame = tk.Frame(self.root)
+        tree_frame = tk.Frame(self.scrollable_frame)
         tree_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
         columns = ("number", "name", "weight", "value", "max_quantity")
@@ -56,14 +116,14 @@ class KnapsackUI:
         scrollbar.pack(side="right", fill="y")
 
     def build_control_buttons(self):
-        control_frame = tk.Frame(self.root)
-        control_frame.pack(pady=(0, 10))
+        self.control_frame = tk.Frame(self.scrollable_frame)
+        self.control_frame.pack(fill="x", padx=10, pady=(0, 10))
 
-        tk.Button(control_frame, text="Xoá sản phẩm", command=self.delete_product).pack(side="left", padx=5)
-        tk.Button(control_frame, text="Import Excel", command=self.import_excel).pack(side="left", padx=5)
+        tk.Button(self.control_frame, text="Xoá sản phẩm", command=self.delete_product).grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        tk.Button(self.control_frame, text="Import Excel", command=self.import_excel).grid(row=0, column=1, padx=5, pady=5, sticky="ew")    
 
     def build_ga_config(self):
-        ga_frame = tk.LabelFrame(self.root, text="Cấu hình thuật toán di truyền", padx=10, pady=10)
+        ga_frame = tk.LabelFrame(self.scrollable_frame, text="Cấu hình thuật toán di truyền", padx=10, pady=10)
         ga_frame.pack(fill="x", padx=10, pady=(0, 10))
         ga_frame.columnconfigure(1, weight=1)
 
@@ -79,12 +139,23 @@ class KnapsackUI:
         self.ga_entries["Số lần chạy:"].insert(0, "10")
 
 
-        tk.Label(ga_frame, text="Kiểu lai:").grid(row=6, column=0, sticky="w", padx=5, pady=3)
+        tk.Label(ga_frame, text="Kiểu lai:").grid(row=7, column=0, sticky="w", padx=5, pady=3)
         self.crossover_combo = ttk.Combobox(ga_frame, values=list(self.crossover_options.keys()), state="readonly")
         self.crossover_combo.current(0)
-        self.crossover_combo.grid(row=6, column=1, sticky="ew", padx=5, pady=3)
+        self.crossover_combo.grid(row=7, column=1, sticky="ew", padx=5, pady=3)
 
-        tk.Button(ga_frame, text="Chạy thuật toán", command=self.run_ga).grid(row=7, column=0, columnspan=2, pady=10, sticky="ew")
+        tk.Label(ga_frame, text="Kiểu chọn:").grid(row=8, column=0, sticky="w", padx=5, pady=3)
+        self.selection_combo = ttk.Combobox(ga_frame, values=list(self.selection_options.keys()), state="readonly")
+        self.selection_combo.current(0)
+        self.selection_combo.grid(row=8, column=1, sticky="ew", padx=5, pady=3)  # thêm dòng này để hiển thị combobox selection
+
+        tk.Label(ga_frame, text="Kiểu đột biến:").grid(row=9, column=0, sticky="w", padx=5, pady=3)
+        self.mutation_combo = ttk.Combobox(ga_frame, values=list(self.mutation_options.keys()), state="readonly")
+        self.mutation_combo.current(0)
+        self.mutation_combo.grid(row=9, column=1, sticky="ew", padx=5, pady=3)  # thêm dòng này để hiển thị combobox selection
+
+
+        tk.Button(ga_frame, text="Chạy thuật toán", command=self.run_ga).grid(row= 10, column=0, columnspan=2, pady=10, sticky="ew")
 
     def add_product(self):
         try:
@@ -154,6 +225,8 @@ class KnapsackUI:
             crossover_rate = float(self.ga_entries["Tỷ lệ lai tạo:"].get())
             num_runs = int(self.ga_entries["Số lần chạy:"].get())
             crossover_type = self.crossover_options[self.crossover_combo.get()]
+            selection_type = self.selection_options[self.selection_combo.get()]
+            mutation_type = self.mutation_options[self.mutation_combo.get()]
         except ValueError:
             messagebox.showerror("Lỗi", "Thông số không hợp lệ.")
             return
@@ -167,7 +240,9 @@ class KnapsackUI:
                 populationSize=population_size,
                 generations=generations,
                 crossoverType=crossover_type,
+                selectionType=selection_type,
                 crossoverRate= crossover_rate,
+                mutationType=mutation_type,
                 mutationRate=mutation_rate
             )
             logs = solver.run()
@@ -178,9 +253,9 @@ class KnapsackUI:
 
         best_fitness, best_run_idx, best_gen_log, best_run_logs = max(best_logs, key=lambda x: x[0]) # thông số của lần chạy tốt nhất 
 
-        self.show_result_window(problem, population_size, generations, crossover_type, mutation_rate, best_gen_log, best_run_logs, best_fitness, best_run_idx, num_runs)
+        self.show_result_window(problem, population_size, selection_type, mutation_type, generations, crossover_type, mutation_rate, best_gen_log, best_run_logs, best_fitness, best_run_idx, num_runs)
 
-    def show_result_window(self, problem, population_size, generations, crossover_type, mutation_rate, best_gen_log, best_run_logs, best_fitness, best_run_idx, num_runs):
+    def show_result_window(self, problem, population_size, selection_type, mutation_type, generations, crossover_type, mutation_rate, best_gen_log, best_run_logs, best_fitness, best_run_idx, num_runs):
         result_window = tk.Toplevel(self.root)
         result_window.title("Biểu đồ thể hiện quy trình tiến hoá")
         fig = Figure(figsize=(7, 4), dpi=100)
@@ -193,7 +268,7 @@ class KnapsackUI:
         best_line, = ax.plot([], [], label="Best Fitness", color='green')
         avg_line, = ax.plot([], [], label="Average Fitness", color='blue')
         worst_line, = ax.plot([], [], label="Worst Fitness", color='red')
-        ax.legend(loc='lower center', bbox_to_anchor=(1, 0.5))
+        ax.legend(loc='best')
 
         canvas = FigureCanvasTkAgg(fig, master=result_window)
         canvas.get_tk_widget().pack(fill="both", expand=True)
@@ -226,13 +301,15 @@ class KnapsackUI:
             ax.autoscale_view()
             canvas.draw()
             result_window.update()
-            time.sleep(0.5)
+            time.sleep(0.1)
 
         #đưa vào input và gọi thuật toán 
         solver = GeneticAlgorithm(
             problem=problem,
             populationSize=population_size,
             generations=generations,
+            selectionType=selection_type,
+            mutationType = mutation_type,
             crossoverType=crossover_type,
             mutationRate=mutation_rate
         )
@@ -268,5 +345,5 @@ class KnapsackUI:
 
         tk.Button(result_window, text="Xem vật phẩm được chọn", command=show_selected_items).pack(pady=(5, 10))
 
-
-
+    
+     

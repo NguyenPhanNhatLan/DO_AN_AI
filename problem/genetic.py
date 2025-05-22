@@ -8,14 +8,18 @@ class GeneticAlgorithm:
         populationSize, 
         generations, 
         crossoverType, 
+        selectionType, 
+        mutationType,
         crossoverRate=0.8, 
         mutationRate=0.05
     ):
-        self.problem        = problem 
+        self.problem        = problem
         self.populationSize = populationSize
         self.generations    = generations
         self.crossoverType  = crossoverType
         self.crossoverRate  = crossoverRate
+        self.mutationType = mutationType
+        self.selectionType = selectionType
         self.mutationRate   = mutationRate
         self.population     = []
         self.logs           = []
@@ -25,14 +29,46 @@ class GeneticAlgorithm:
             [random.randint(0, item['Max_quantity']) for item in self.problem.items]
             for _ in range(self.populationSize)
         ]
+    
+    def selection(self, num_choices=3):
+        if self.selectionType == 'tournament':
+            return self.tournament_selection(num_choices)
+        elif self.selectionType == 'random':
+            return self.random_selection()
+        elif self.selectionType == 'roulette':
+            return self.roulette_wheel_selection()
+        else:
+            raise ValueError("Phương pháp selection không hợp lệ. Chọn 'tournament', 'random' hoặc 'roulette'.")
 
     def evaluate_fitness(self, individual):
         return self.problem.fitness(individual)
 
-    def selection(self, num_choices=3):
+    def tournament_selection(self, num_choices=3):
         candidates = random.choices(self.population, k=num_choices)
         candidates.sort(key=self.evaluate_fitness, reverse=True)
         return candidates[0]
+
+    def random_selection(self):
+        return random.choice(self.population)
+
+    def roulette_wheel_selection(self):
+        fitness_values = [self.evaluate_fitness(ind) for ind in self.population]
+        total_fitness = sum(fitness_values)
+
+        if total_fitness == 0:
+            return random.choice(self.population)
+
+        probabilities = [f / total_fitness for f in fitness_values]
+        cumulative_probabilities = []
+        cumulative = 0
+        for p in probabilities:
+            cumulative += p
+            cumulative_probabilities.append(cumulative)
+
+        r = random.random()
+        for i, cumulative_p in enumerate(cumulative_probabilities):
+            if r <= cumulative_p:
+                return self.population[i]
 
     def crossover(self, parent1, parent2):
         if self.crossoverType == 'uniform':
@@ -52,7 +88,6 @@ class GeneticAlgorithm:
                 parent2[:cut_point] + parent1[cut_point:]
             )
         return parent1, parent2
-    
 
     def two_points_crossover(self, parent1, parent2):
         if random.random() < self.crossoverRate:
@@ -64,20 +99,41 @@ class GeneticAlgorithm:
         return parent1, parent2
 
     def uniform_crossover(self, parent1, parent2):
+        if random.random() > self.crossoverRate:
+            return parent1, parent2  # không crossover thì giữ nguyên
+            
         child1, child2 = [], []
         for gene1, gene2 in zip(parent1, parent2):
-            if random.random() < self.crossoverRate:
-                child1.append(gene1)
-                child2.append(gene2)
-            else:
+            if random.random() < 0.5:  # swap probability
                 child1.append(gene2)
                 child2.append(gene1)
+            else:
+                child1.append(gene1)
+                child2.append(gene2)
         return child1, child2
 
     def mutate(self, individual):
+        if self.mutationType == 'uniform':
+            return self.uniform_mutate(individual)
+        elif self.mutationType == 'scramble':
+            return self.scramble_mutate(individual)
+        else:
+            return individual
+
+    def uniform_mutate(self, individual):
         for i in range(len(individual)):
             if random.random() < self.mutationRate:
                 individual[i] = random.randint(0, self.problem.items[i]['Max_quantity'])
+        return individual
+
+    def scramble_mutate(self, individual):
+        if random.random() < self.mutationRate:
+            start = random.randint(0, len(individual) - 2)
+            end = random.randint(start + 1, len(individual) - 1)
+            segment = individual[start:end + 1]
+            random.shuffle(segment)
+            individual[start:end + 1] = segment
+        return individual
 
     def run(self, log_callback=None):
         self.initial_population()
@@ -112,6 +168,6 @@ class GeneticAlgorithm:
                 new_population.extend([child1, child2])
 
             # Giữ lại best cá thể để elitism
-            population = new_population[:self.populationSize - 1] + [best_individual]
+            self.population = new_population[:self.populationSize - 1] + [best_individual]
 
         return self.logs

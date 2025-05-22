@@ -8,7 +8,6 @@ class KnapsackProblem:
         total_value = 0
 
         for quantity, item in zip(individual, self.items):
-            
             total_weight += quantity*item['weight']
             total_value += quantity*item['value']
         if total_weight > self.capacity:
