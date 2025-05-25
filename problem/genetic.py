@@ -81,6 +81,9 @@ class GeneticAlgorithm:
             return parent1, parent2
 
     def one_point_crossover(self, parent1, parent2):
+        if len(self.problem.items) < 2:
+        # Không thể cắt nếu có ít hơn 2 gene → giữ nguyên
+            return parent1[:], parent2[:]
         if random.random() < self.crossoverRate:
             cut_point = random.randint(1, len(self.problem.items) - 1)
             return (
@@ -168,6 +171,5 @@ class GeneticAlgorithm:
                 new_population.extend([child1, child2])
 
             # Giữ lại best cá thể để elitism
-            self.population = new_population[:self.populationSize - 1] + [best_individual]
-
+            self.population = new_population[:self.populationSize - 1] + [best_individual] 
         return self.logs

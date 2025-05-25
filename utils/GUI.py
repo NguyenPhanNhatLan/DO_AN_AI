@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import pandas as pd
 import platform
-
+from matplotlib.ticker import MaxNLocator
 import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -229,8 +229,6 @@ class KnapsackUI:
             mutation_type = self.mutation_options[self.mutation_combo.get()]
         except ValueError:
             messagebox.showerror("Lỗi", "Thông số không hợp lệ.")
-            return
-
         problem = KnapsackProblem(self.products, capacity=capacity) #bài toán cần giải 
         best_logs = []
 
@@ -248,10 +246,9 @@ class KnapsackUI:
             logs = solver.run()
             best_gen = max(logs, key=lambda x: x["best"]) # thế hệ tốt nhất của mỗi lần chạy - num_runs 
             best_logs.append((best_gen["best"], run_idx, best_gen, logs))
-        for item in best_logs: #debug thế hệ tốt nhất của các lần chạy 
-            print(f"{item[0]}, {item[1]}, {item[2]}")
 
         best_fitness, best_run_idx, best_gen_log, best_run_logs = max(best_logs, key=lambda x: x[0]) # thông số của lần chạy tốt nhất 
+        print(best_gen_log)
 
         self.show_result_window(problem, population_size, selection_type, mutation_type, generations, crossover_type, mutation_rate, best_gen_log, best_run_logs, best_fitness, best_run_idx, num_runs)
 
@@ -260,6 +257,8 @@ class KnapsackUI:
         result_window.title("Biểu đồ thể hiện quy trình tiến hoá")
         fig = Figure(figsize=(7, 4), dpi=100)
         ax = fig.add_subplot(111)
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=20))  # Chia tối đa 20 khoảng trên trục x
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=15))  # Chia tối đa 10 khoảng trên trục y
         ax.set_title("Tiến hoá qua các thế hệ")
         ax.set_xlabel("Thế hệ")
         ax.set_ylabel("Fitness")
@@ -272,10 +271,40 @@ class KnapsackUI:
 
         canvas = FigureCanvasTkAgg(fig, master=result_window)
         canvas.get_tk_widget().pack(fill="both", expand=True)
+        log_frame = tk.Frame(result_window)
+        log_frame.pack(fill="both", expand=False, padx=10, pady=(0, 10))
+
+        log_label = tk.Label(log_frame, text="Log cá thể tốt nhất mỗi thế hệ:", font=("Arial", 10, "bold"))
+        log_label.pack(anchor="w")
+
+        log_text = tk.Text(log_frame, height=8, wrap="word")
+        log_text.pack(fill="both", expand=True)
+        log_text.config(state='disabled')  # Bắt đầu ở trạng thái không chỉnh sửa
+
+        log_text.config(state='normal')
+        log_text.insert("end", f"Thế hệ tốt nhất của mỗi lần chạy : {best_gen_log['generation']},Cá thể tốt nhất :{best_gen_log['bestIndividual']}, best fitness : {best_gen_log['best']}\n")
+        log_text.see("end")  # Tự động cuộn xuống cuối
+        log_text.config(state='disabled')
+
 
         generations_list, best_list, avg_list, worst_list = [], [], [], []
+        current_log_index = 0 
 
-        def update_chart(log): 
+        def update_chart(): 
+            nonlocal current_log_index
+
+            if current_log_index >= len(best_run_logs):
+                # Khi cập nhật xong tất cả log → vẽ dòng mô tả cuối cùng
+                fig.text(
+                    0.5, 0.95,
+                    f"Lần chạy tốt nhất: {best_run_idx + 1}/{num_runs} | Fitness cao nhất: {best_fitness:.2f}",
+                    ha='center', va='bottom',
+                    fontsize=10, color='purple', fontweight='bold'
+                )
+                canvas.draw()
+                return
+
+            log = best_run_logs[current_log_index]
             generations_list.append(log["generation"])
             best_list.append(log["best"])
             avg_list.append(log["avg"])
@@ -287,33 +316,104 @@ class KnapsackUI:
 
             for txt in ax.texts:
                 txt.remove()
-            # Nếu giá trị fitness tại thế hệ i khác với thế hệ trước hoặc sau 
-            # → hiển thị nhãn giá trị ngay trên biểu đồ để người dùng dễ nhìn thấy sự thay đổi bất thường.
+            # for i in range(1, len(generations_list) - 1):
+            #     for lst, color in [(best_list, 'green'), (avg_list, 'blue'), (worst_list, 'red')]:
+            #         prev_y, curr_y, next_y = lst[i - 1], lst[i], lst[i + 1]
+            #         if curr_y != prev_y or curr_y != next_y:
+            #             ax.annotate(f"{curr_y:.1f}", (generations_list[i], curr_y),
+            #                         textcoords="offset points", xytext=(0, 5),
+            #                         ha='center', fontsize=8, color=color)
+                    
+            def is_corner(lst, i, threshold=5):
+                if i <= 0 or i >= len(lst) - 1:
+                    return False
+                dy1 = lst[i] - lst[i - 1]
+                dy2 = lst[i + 1] - lst[i]
+                return abs(dy2 - dy1) > threshold
+
             for i in range(1, len(generations_list) - 1):
-                for lst, color in [(best_list, 'green'), (avg_list, 'blue'), (worst_list, 'red')]:
+                if current_log_index == len(best_run_logs) - 1:
+                    max_best = max(best_list)
+                    min_best = min(best_list)
+                    idx_max_best = best_list.index(max_best)
+                    idx_min_best = best_list.index(min_best)
+
+                    ax.annotate(f"Max: {max_best:.1f}", (generations_list[idx_max_best], max_best),
+                                textcoords="offset points", xytext=(0, 10), ha='center',
+                                fontsize=9, fontweight='bold', color='green')
+                    
+                    ax.annotate(f"Min: {min_best:.1f}", (generations_list[idx_min_best], min_best),
+                                textcoords="offset points", xytext=(0, -15), ha='center',
+                                fontsize=9, fontweight='bold', color='green')
+
+                    # Worst line
+                    max_worst = max(worst_list)
+                    min_worst = min(worst_list)
+                    idx_max_worst = worst_list.index(max_worst)
+                    idx_min_worst = worst_list.index(min_worst)
+
+                    ax.annotate(f"Max: {max_worst:.1f}", (generations_list[idx_max_worst], max_worst),
+                                textcoords="offset points", xytext=(0, 10), ha='center',
+                                fontsize=9, fontweight='bold', color='red')
+
+                    ax.annotate(f"Min: {min_worst:.1f}", (generations_list[idx_min_worst], min_worst),
+                                textcoords="offset points", xytext=(0, -15), ha='center',
+                                fontsize=9, fontweight='bold', color='red')
+                gen = generations_list[i]
+                # Đánh dấu các danh sách muốn xét
+                data_series = [
+                    (best_list, 'green'),
+                    (avg_list, 'blue'),
+                    (worst_list, 'red')
+                ]
+
+                for lst, color in data_series:
                     prev_y, curr_y, next_y = lst[i - 1], lst[i], lst[i + 1]
-                    if curr_y != prev_y or curr_y != next_y:
-                        ax.annotate(f"{curr_y:.1f}", (generations_list[i], curr_y),
+                    changed = curr_y != prev_y or curr_y != next_y
+                    corner = is_corner(lst, i)
+
+                    # Nếu thay đổi nhưng KHÔNG phải khúc gấp → in nhãn
+                    if changed and not corner:
+                        ax.annotate(f"{curr_y:.1f}", (gen, curr_y),
                                     textcoords="offset points", xytext=(0, 5),
                                     ha='center', fontsize=8, color=color)
 
+                # Cứ 15 thế hệ → buộc in best & worst, trừ khi là khúc gấp
+                if gen % 15 == 0:
+                    if not is_corner(best_list, i):
+                        ax.annotate(f"{best_list[i]:.1f}", (gen, best_list[i]),
+                                    textcoords="offset points", xytext=(0, 5),
+                                    ha='center', fontsize=8, color='green')
+                    if not is_corner(worst_list, i):
+                        ax.annotate(f"{worst_list[i]:.1f}", (gen, worst_list[i]),
+                                    textcoords="offset points", xytext=(0, -10),
+                                    ha='center', fontsize=8, color='red')
+                        
+            # if best_list:
+            #     max_best = max(best_list)
+            #     idx_max_best = best_list.index(max_best)
+            #     gen_max_best = generations_list[idx_max_best]
+            #     ax.annotate(f"{max_best:.1f}", (gen_max_best, max_best),
+            #                 textcoords="offset points", xytext=(0, 5),
+            #                 ha='center', fontsize=8, color='green')
+
+            # if worst_list:
+            #     min_worst = min(worst_list)
+            #     idx_min_worst = worst_list.index(min_worst)
+            #     gen_min_worst = generations_list[idx_min_worst]
+            #     ax.annotate(f"{min_worst:.1f}", (gen_min_worst, min_worst),
+            #                 textcoords="offset points", xytext=(0, 5),
+            #                 ha='center', fontsize=8, color='red')
+
             ax.relim()
             ax.autoscale_view()
+            fig.tight_layout() 
             canvas.draw()
-            result_window.update()
-            time.sleep(0.1)
 
+            current_log_index += 1
+            result_window.after(50, update_chart)  # gọi lại sau 100ms
         #đưa vào input và gọi thuật toán 
-        solver = GeneticAlgorithm(
-            problem=problem,
-            populationSize=population_size,
-            generations=generations,
-            selectionType=selection_type,
-            mutationType = mutation_type,
-            crossoverType=crossover_type,
-            mutationRate=mutation_rate
-        )
-        solver.run(log_callback=update_chart) # nếu callback đc truyền và số thế hệ chia hết cho 10, tức là mỗi sau 10 thế hệ, biểu đồ sẽ được cập nhật lại 
+        update_chart()# nếu callback đc truyền và số thế hệ chia hết cho 10, tức là mỗi sau 10 thế hệ, biểu đồ sẽ được cập nhật lại 
 
         fig.text(
             0.5, 0.95,
