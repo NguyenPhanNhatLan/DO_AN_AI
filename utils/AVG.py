@@ -46,7 +46,7 @@ class GAApp:
 
         # Cột riêng cho các thành phần phụ
         tk.Label(input_frame, text="Parameter Change Mode", font=("TkDefaultFont", 8)).grid(row=0, column=len(labels))
-        self.change_mode = ttk.Combobox(input_frame, values=['increase', 'decrease', 'random'], state="readonly", width=10)
+        self.change_mode = ttk.Combobox(input_frame, values=['increase', 'decrease'], state="readonly", width=10)
         self.change_mode.current(0)
         self.change_mode.grid(row=1, column=len(labels))
 
@@ -58,9 +58,6 @@ class GAApp:
 
         tk.Button(input_frame, text="Load Excel", command=self.load_excel).grid(row=1, column=len(labels)+1, padx=5)
         tk.Button(input_frame, text="Run Experiments", command=self.run_experiments).grid(row=3, column=len(labels)+1, padx=5)
-
-        self.compare_selection = tk.BooleanVar()
-        tk.Checkbutton(input_frame, text="So sánh Selection Type", variable=self.compare_selection).grid(row=3, column=len(labels)+2)
 
         # Tabs bên dưới chiếm toàn bộ không gian còn lại
         tab_control = ttk.Notebook(self.root)
@@ -129,7 +126,7 @@ class GAApp:
             param_mode = self.change_mode.get()
             selected_indices = self.param_to_change.curselection()
             params_to_change = [self.param_to_change.get(i) for i in selected_indices] 
-            compare_selection = self.compare_selection.get()
+
 
             self.problem = KnapsackProblem(self.products, capacity=capacity)
 
@@ -139,175 +136,88 @@ class GAApp:
 
             threading.Thread(
                 target=self.run_trials,
-                args=(base_params, runs, params_to_change, param_mode, compare_selection),
+                args=(base_params, runs, params_to_change, param_mode),
                 daemon=True
             ).start()
 
         except Exception as e:
             messagebox.showerror("Lỗi", f"Chưa nhập đủ dữ liệu: {e}")
 
+    def run_trials(self, base_params, runs, params_to_change, mode):
+        self.ax.clear()
 
-    def run_trials(self, base_params, runs, params_to_change, mode, compare_selection):
-        self.ax.clear()  # Clear biểu đồ cũ
+        if len(params_to_change) > 1:
+            messagebox.showerror("Lỗi", "Vui lòng chỉ chọn tối đa 1 tham số để thay đổi.")
+            return
 
-        if compare_selection and not params_to_change:
-            selection_types = ['tournament', 'random', 'roulette']
-            colors = ['blue', 'green', 'orange']
+        params = base_params.copy()
+        results = []
+        run_numbers = []
 
-            for i, sel_type in enumerate(selection_types):
-                results = []
-                for run in range(1, runs + 1):
-                    ga = GeneticAlgorithm(
-                        self.problem,
-                        base_params["pop_size"],
-                        base_params["generations"],
-                        self.comboboxes["Crossover Type"].get(),
-                        sel_type,
-                        self.comboboxes["Mutation Type"].get(),
-                        base_params["crossover_rate"],
-                        base_params["mutation_rate"]
-                    )
-                    logs = ga.run()
-                    best_fitness = max(float(log["best"]) for log in logs)
-                    results.append(best_fitness)
+        for run in range(1, runs + 1):
+            label_info = ""
 
-                    self.log_text.insert(tk.END, f"[{sel_type}] Run {run}: Best fitness = {best_fitness}\n")
-                    self.log_text.see(tk.END)
+            if len(params_to_change) == 1:
+                param_to_change = params_to_change[0]
+                if param_to_change == "Population Size":
+                    params["pop_size"] = self.modify_value(params["pop_size"], mode, 10, 10000)
+                    label_info = f" | Pop Size: {params['pop_size']}"
+                elif param_to_change == "Generations":
+                    params["generations"] = self.modify_value(params["generations"], mode, 10, 10000)
+                    label_info = f" | Generations: {params['generations']}"
+                elif param_to_change == "Crossover Rate":
+                    params["crossover_rate"] = self.modify_value(params["crossover_rate"], mode, 0.3, 1.0, run - 1)
+                    label_info = f" | Crossover Rate: {params['crossover_rate']:.2f}"
+                elif param_to_change == "Mutation Rate":
+                    params["mutation_rate"] = self.modify_value(params["mutation_rate"], mode, 0.01, 1.0, run - 1)
+                    label_info = f" | Mutation Rate: {params['mutation_rate']:.2f}"
 
-                self.ax.plot(range(1, runs + 1), results, label=f"Selection: {sel_type}",
-                            linewidth=1.0, color=colors[i])
+            ga = GeneticAlgorithm(
+                self.problem,
+                params["pop_size"],
+                params["generations"],
+                self.comboboxes["Crossover Type"].get(),
+                self.comboboxes["Selection Type"].get(),
+                self.comboboxes["Mutation Type"].get(),
+                params["crossover_rate"],
+                params["mutation_rate"]
+            )
+            logs = ga.run()
+            best_fitness = max(float(log["best"]) for log in logs)
 
-            selected_type = self.comboboxes["Selection Type"].get()
-            extra_results = []
-            for run in range(1, runs + 1):
-                ga = GeneticAlgorithm(
-                    self.problem,
-                    base_params["pop_size"],
-                    base_params["generations"],
-                    self.comboboxes["Crossover Type"].get(),
-                    selected_type,
-                    self.comboboxes["Mutation Type"].get(),
-                    base_params["crossover_rate"],
-                    base_params["mutation_rate"]
-                )
-                logs = ga.run()
-                best_fitness = max(float(log["best"]) for log in logs)
-                extra_results.append(best_fitness)
+            results.append(best_fitness)
+            run_numbers.append(run)
+            self.log_text.insert(tk.END, f"[Run {run}]{label_info} → Best fitness = {best_fitness}\n")
+            self.log_text.see(tk.END)
 
-                self.log_text.insert(tk.END, f"[Extra - {selected_type}] Run {run}: Best fitness = {best_fitness}\n")
-                self.log_text.see(tk.END)
-
-            self.ax.plot(range(1, runs + 1), extra_results, label=f"Extra: {selected_type}",
-                        linewidth=2.0, linestyle='--', color='black')
-
-            self.ax.set_title("So sánh Selection Type qua các lần chạy")
-            self.ax.set_xlabel("Run")
-            self.ax.set_ylabel("Best Fitness")
-
-        elif not compare_selection and params_to_change:
-            results_per_label = {}
-
-            for run in range(1, runs + 1):
-                params = base_params.copy()
-                label_parts = []
-
-                for p in params_to_change:
-                    if p == "Population Size":
-                        params["pop_size"] = self.modify_value(params["pop_size"], mode, 10, 200)
-                        label_parts.append(f"Pop {params['pop_size']}")
-                    elif p == "Generations":
-                        params["generations"] = self.modify_value(params["generations"], mode, 10, 300)
-                        label_parts.append(f"Gen {params['generations']}")
-                    elif p == "Crossover Rate":
-                        params["crossover_rate"] = self.modify_value(params["crossover_rate"], mode, 0.3, 1.0, 0.05)
-                        label_parts.append(f"Crossover {params['crossover_rate']:.2f}")
-                    elif p == "Mutation Rate":
-                        params["mutation_rate"] = self.modify_value(params["mutation_rate"], mode, 0.01, 0.3, 0.01)
-                        label_parts.append(f"Mutation {params['mutation_rate']:.2f}")
-
-                label = ", ".join(label_parts)
-                if label not in results_per_label:
-                    results_per_label[label] = []
-
-                ga = GeneticAlgorithm(
-                    self.problem,
-                    params["pop_size"],
-                    params["generations"],
-                    self.comboboxes["Crossover Type"].get(),
-                    self.comboboxes["Selection Type"].get(),
-                    self.comboboxes["Mutation Type"].get(),
-                    params["crossover_rate"],
-                    params["mutation_rate"]
-                )
-                logs = ga.run()
-                best_fitness = max(float(log["best"]) for log in logs)
-
-                results_per_label[label].append(best_fitness)
-
-                self.log_text.insert(tk.END, f"[{label}] Run {run}: Best fitness = {best_fitness}\n")
-                self.log_text.see(tk.END)
-
-            for label, results in results_per_label.items():
-                self.ax.plot(range(1, len(results) + 1), results, label=label, linewidth=1.0, marker='o')
-
-            self.ax.set_title("Ảnh hưởng của tham số thay đổi qua các lần chạy")
-            self.ax.set_xlabel("Run")
-            self.ax.set_ylabel("Best Fitness")
-
-        else:
-            results = []
-            self.best_run_fitness = float('-inf')
-            self.best_run_index = -1
-
-            for run in range(1, runs + 1):
-                ga = GeneticAlgorithm(
-                    self.problem,
-                    base_params["pop_size"],
-                    base_params["generations"],
-                    self.comboboxes["Crossover Type"].get(),
-                    self.comboboxes["Selection Type"].get(),
-                    self.comboboxes["Mutation Type"].get(),
-                    base_params["crossover_rate"],
-                    base_params["mutation_rate"]
-                )
-                logs = ga.run()
-                best_fitness = max(float(log["best"]) for log in logs)
-                results.append(best_fitness)
-
-                if best_fitness > self.best_run_fitness:
-                    self.best_run_fitness = best_fitness
-                    self.best_run_index = run - 1
-                    self.best_fitness_per_gen = [float(log["best"]) for log in logs]
-                    self.avg_fitness_per_gen = [float(log["avg"]) for log in logs]
-
-                self.log_text.insert(tk.END, f"[Default] Run {run}: Best fitness = {best_fitness}\n")
-                self.log_text.see(tk.END)
-
-            self.ax.plot(range(1, runs + 1), results, label="Best fitness per run",
-                        linewidth=2.0, marker='o', color='blue')
-            self.ax.set_title("Best Fitness qua các lần chạy")
-            self.ax.set_xlabel("Run")
-            self.ax.set_ylabel("Best Fitness")
-
-        self.ax.legend(fontsize=8)
+        self.ax.plot(run_numbers, results, label="Best Fitness", linewidth=2.0, marker='o', color='blue')
+        self.ax.set_title("Best Fitness qua các lần chạy")
+        self.ax.set_xlabel("Số lần chạy")
+        self.ax.set_ylabel("Best Fitness")
         self.ax.grid(True, linestyle='--', linewidth=0.5)
+        self.ax.legend(fontsize=8)
         self.canvas.draw()
-    def modify_value(self, value, mode, min_val, max_val, step=5):
-        if mode == 'increase':
-            new_value = value + step
-            return min(new_value, max_val)
-        elif mode == 'decrease':
-            new_value = value - step
-            return max(new_value, min_val)
-        elif mode == 'random':
-            if min_val > max_val:
-                return value
-            if isinstance(value, float):
-                return round(random.uniform(min_val, max_val), 2)
+
+    def modify_value(self, value, mode, min_val, max_val, run_index=0):
+        total_steps = self.runs - 1  # tránh chia cho 0 nếu runs=1
+    
+        if isinstance(value, float):
+            total_steps = self.runs - 1
+            step = (max_val - min_val) / total_steps if total_steps else 0
+            if mode == 'increase':
+                return min(min_val + step * run_index, max_val)
+            elif mode == 'decrease':
+                return max(max_val - step * run_index, min_val)
             else:
-                return random.randint(min_val, max_val)
+                return value
         else:
-            return value
+            # Int: tăng giảm 5 mỗi lần, không cần run_index
+            if mode == 'increase':
+                return min(value + 5, max_val)
+            elif mode == 'decrease':
+                return max(value - 5, min_val)
+            else:
+                return value
     def open_fullscreen_plot(self):
         import tkinter as tk
         from tkinter import ttk

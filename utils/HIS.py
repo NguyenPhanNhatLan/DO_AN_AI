@@ -143,6 +143,7 @@ class HistogramGUI(tk.Tk):
     def _run_survey_thread(self):
         param_name = self.param_combo.get()
         values = self.params[param_name]
+        print(f"Đang khảo sát với {param_name} giá trị: {values}")
 
         fitness_counter = Counter()
 

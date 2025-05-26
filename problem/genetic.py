@@ -1,5 +1,6 @@
 from problem.knapsack import KnapsackProblem
 import random
+import copy
 
 class GeneticAlgorithm:
     def __init__(
@@ -147,7 +148,7 @@ class GeneticAlgorithm:
             best_fitness     = max(fitnesses)
             avg_fitness      = sum(fitnesses) / len(fitnesses)
             worst_fitness    = min(fitnesses)
-            best_individual  = max(population, key=self.evaluate_fitness)
+            best_individual = copy.deepcopy(max(population, key=self.evaluate_fitness))
 
             log = {
                 "generation"     : generation + 1,
@@ -171,5 +172,14 @@ class GeneticAlgorithm:
                 new_population.extend([child1, child2])
 
             # Giữ lại best cá thể để elitism
-            self.population = new_population[:self.populationSize - 1] + [best_individual] 
+            new_population = new_population[:self.populationSize - 1]
+
+            # Thêm cá thể tốt nhất trở lại quần thể
+            self.population = new_population + [best_individual]
+            population = self.population  # Cập nhật lại population cho thế hệ sau
+
+            # new_population = new_population[:self.populationSize]
+            # self.population = new_population
+            # population = self.population  
+
         return self.logs
